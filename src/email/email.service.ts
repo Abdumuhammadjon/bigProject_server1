@@ -1,26 +1,18 @@
+// src/email/email.service.ts
+
 import { Injectable } from '@nestjs/common';
-import { CreateEmailDto } from './dto/create-email.dto';
-import { UpdateEmailDto } from './dto/update-email.dto';
+import axios from 'axios';
 
 @Injectable()
 export class EmailService {
-  create(createEmailDto: CreateEmailDto) {
-    return 'This action adds a new email';
+
+  async sendEmail(email: string) {
+    const response = await axios.post(
+      'http://localhost:3001/send-email',
+      { email }
+    );
+
+    return response.data;
   }
 
-  findAll() {
-    return `This action returns all email`;
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} email`;
-  }
-
-  update(id: number, updateEmailDto: UpdateEmailDto) {
-    return `This action updates a #${id} email`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} email`;
-  }
 }
