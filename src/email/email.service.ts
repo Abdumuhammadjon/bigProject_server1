@@ -8,7 +8,7 @@ export class EmailService {
 
   async sendEmail(email: string) {
     const response = await axios.post(
-      'http://localhost:3001/send-email',
+      'http://localhost:3001/send_email',
       { email }
     );
 
