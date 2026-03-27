@@ -2,25 +2,26 @@ import { Module } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { User } from './entities/auth.entity'; // Yo'lni tekshiring
-import { BullModule } from '@nestjs/bullmq';
-import { RedisModule } from '@nestjs-modules/ioredis'; // Buni qo'shing
-import { MailProcessor } from './auth/processors/mail.processor'; // MailProcessor-ni import qiling
+import { User } from './entities/auth.entity'; 
+import { RedisModule } from '@nestjs-modules/ioredis';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JobsModule } from './auth/processors/jobs.module'; // JOBS_MODULE NI QO'SHDIK
+import { MailProcessor } from './auth/processors/mail.processor';
 
 @Module({
   imports: [
-    // 1. Ma'lumotlar bazasi uchun
     TypeOrmModule.forFeature([User]),
-
-    // 2. Redis ulanishini AuthModule ichiga ham olib kirish
-    RedisModule.forRoot({
-      type: 'single',
-      url: 'redis://localhost:6379', // Redis manzilingiz
-    }),
-
-    // 3. BullMQ navbatini ro'yxatdan o'tkazish
-    BullModule.registerQueue({
-      name: 'mail-queue',
+    JobsModule, // BU NAVBATNI TANITIB BERADI
+    RedisModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (config: ConfigService) => ({
+        type: 'single',
+        url: `redis://:${config.get('REDIS_PASSWORD')}@${config.get('REDIS_HOST')}:${config.get('REDIS_PORT')}`,
+        options: {
+          tls: config.get('REDIS_TLS') === 'true' ? {} : undefined,
+        },
+      }),
+      inject: [ConfigService],
     }),
   ],
   controllers: [AuthController],
