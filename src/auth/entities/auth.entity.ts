@@ -8,14 +8,8 @@ export class User {
   @Column({ unique: true })
   email: string;
 
-  @Column({ nullable: true })
-  phone?: string;
-
-  @Column({ nullable: true, length: 6 })
-  verificationCode?: string;
-
-  @Column({ type: 'timestamp', nullable: true })
-  codeExpiresAt?: Date;
+  @Column()
+  password: string; // Hashlangan parol uchun
 
   @Column({ default: false })
   isVerified: boolean;

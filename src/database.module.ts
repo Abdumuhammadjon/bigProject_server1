@@ -1,26 +1,28 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConfigModule } from '@nestjs/config';
-import { User } from './user.entity';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { User } from './auth/entities/auth.entity'; // User entity yo'lingizni tekshiring
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      // Rasmda ko'rsatilgan aniq Host:
-      host: 'aws-1-eu-central-1.pooler.supabase.com', 
-      port: 6543, 
-      // Rasmda ko'rsatilgan aniq User:
-      username: 'postgres.pzelfekjkolyxyrgmsgb', 
-      password: 'Baliq06011991.', // O'zingizning parolingiz
-      database: 'postgres',
-      entities: [User],
-      synchronize: true, 
-      logging: true,
-      ssl: {
-        rejectUnauthorized: false, 
-      },
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        type: 'postgres',
+        host: configService.get<string>('DB_HOST'),
+        port: configService.get<number>('DB_PORT'),
+        username: configService.get<string>('DB_USERNAME'),
+        password: configService.get<string>('DB_PASSWORD'),
+        database: configService.get<string>('DB_NAME'),
+        entities: [User],
+        synchronize: true, // Production-da buni false qilish tavsiya etiladi
+        logging: true,
+        ssl: {
+          rejectUnauthorized: false,
+        },
+      }),
     }),
     TypeOrmModule.forFeature([User]),
   ],
