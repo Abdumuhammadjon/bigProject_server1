@@ -39,9 +39,10 @@ export class MailProcessor extends WorkerHost {
         await this.mailerSend.email.send(emailParams);
         return { status: 'sent' };
       } catch (error) {
-        this.logger.error(`Xatolik: ${error.message}`);
-        throw error; // BullMQ qayta urinishi (retry) uchun
+        
+  this.logger.error("MAILERSEND XATOSI:", error.response?.body || error.message);
+  throw error;
+}
       }
     }
   }
-}
