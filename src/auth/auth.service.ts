@@ -67,18 +67,41 @@ export class AuthService {
     return { message: "Tasdiqlandi!" };
   }
 
-  async resendOtp(email: string) {
-    if (!email) {
-      throw new BadRequestException('Email yuborilishi shart');
-    }
-
-    const user = await this.userRepo.findOne({ where: { email } });
-    if (!user) throw new BadRequestException('Foydalanuvchi topilmadi');
-
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    await this.redis.set(`otp:${email}`, otp, 'EX', 180);
-    await this.mailQueue.add('send-otp', { email, otp });
-
-    return { message: "Yangi kod yuborildi.", email };
+async resendOtp(email: string) {
+  if (!email) {
+    throw new BadRequestException('Email yuborilishi shart');
   }
+
+  // 1. Foydalanuvchini tekshirish
+  const user = await this.userRepo.findOne({ where: { email } });
+  if (!user) throw new BadRequestException('Foydalanuvchi topilmadi');
+
+  // 2. Limitni tekshirish (3 minutlik cheklov)
+  // 'limit:otp:email' kaliti borligini tekshiramiz
+  const isLimited = await this.redis.get(`limit:${email}`);
+  if (isLimited) {
+    // Qolgan vaqtni hisoblash (ixtiyoriy)
+    const ttl = await this.redis.ttl(`limit:${email}`);
+    throw new BadRequestException(`Siz yana ${ttl} soniyadan keyin qayta kod so'rashingiz mumkin`);
+  }
+
+  // 3. Yangi OTP yaratish
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+  // 4. Redis'ga saqlash
+  // OTP kodining o'zi 3 minut amal qiladi
+  await this.redis.set(`otp:${email}`, otp, 'EX', 180);
+  
+  // 5. Qayta yuborishni cheklash (3 minutga bloklash)
+  // Bu kalit foydalanuvchiga 3 minut ichida qayta tugmani bosishga yo'l qo'ymaydi
+  await this.redis.set(`limit:${email}`, 'true', 'EX', 180);
+
+  // 6. Navbatga qo'shish
+  await this.mailQueue.add('send-otp', { email, otp });
+
+  return { 
+    message: "Yangi kod yuborildi.", 
+    email: email 
+  };
+}
 }
