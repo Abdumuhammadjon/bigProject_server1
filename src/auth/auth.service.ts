@@ -7,6 +7,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/auth.entity';
+import { RegisterDto } from './dto/create-auth.dto';
 
 @Injectable()
 export class AuthService {
@@ -16,31 +17,43 @@ export class AuthService {
     @InjectQueue('mail-queue') private mailQueue: Queue,
   ) {}
 
-  async register(registerDto: any) {
+  async register(registerDto: RegisterDto) {
     const { email, password } = registerDto;
 
-    const existingUser = await this.userRepo.findOne({ where: { email } });
-    if (existingUser) throw new BadRequestException('Email mavjud');
+    // 1. Email va parolni mavjudligini tekshirish (Double-check)
+    if (!email || !password) {
+      throw new BadRequestException('Email va parol yuborilishi shart');
+    }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = this.userRepo.create({
-      email,
-      password: hashedPassword,
-      isVerified: false,
-    });
-    await this.userRepo.save(user);
+    try {
+      const existingUser = await this.userRepo.findOne({ where: { email } });
+      if (existingUser) throw new BadRequestException('Email mavjud');
 
-    // OTP yaratish va Redis-ga (3 min)
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    await this.redis.set(`otp:${email}`, otp, 'EX', 180);
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const user = this.userRepo.create({
+        email,
+        password: hashedPassword,
+        isVerified: false,
+      });
+      await this.userRepo.save(user);
 
-    // Navbatga qo'shish (Vazifa nomi: 'send-otp')
-    await this.mailQueue.add('send-otp', { email, otp }, { attempts: 3 });
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      await this.redis.set(`otp:${email}`, otp, 'EX', 180);
 
-    return { message: "Kod yuborildi." };
+      await this.mailQueue.add('send-otp', { email, otp }, { attempts: 3 });
+
+      return { message: "Kod yuborildi.", email };
+    } catch (error) {
+      // Agar kutilmagan xato bo'lsa, serverni to'xtatmasdan xato qaytaramiz
+      throw new BadRequestException(error.message || 'Roʻyxatdan oʻtishda xatolik yuz berdi');
+    }
   }
 
   async verifyOtp(email: string, code: string) {
+    if (!email || !code) {
+      throw new BadRequestException('Email va kod yuborilishi shart');
+    }
+
     const savedOtp = await this.redis.get(`otp:${email}`);
     if (!savedOtp || savedOtp !== code) {
       throw new BadRequestException('Kod xato yoki muddati o\'tgan');
@@ -53,13 +66,17 @@ export class AuthService {
   }
 
   async resendOtp(email: string) {
+    if (!email) {
+      throw new BadRequestException('Email yuborilishi shart');
+    }
+
     const user = await this.userRepo.findOne({ where: { email } });
-    if (!user) throw new BadRequestException('Foydalanuvchi yo\'q');
+    if (!user) throw new BadRequestException('Foydalanuvchi topilmadi');
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     await this.redis.set(`otp:${email}`, otp, 'EX', 180);
     await this.mailQueue.add('send-otp', { email, otp });
 
-    return { message: "Yangi kod yuborildi." };
+    return { message: "Yangi kod yuborildi.", email };
   }
 }
