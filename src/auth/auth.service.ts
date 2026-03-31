@@ -8,6 +8,7 @@ import { Queue } from 'bullmq';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/auth.entity';
 import { RegisterDto } from './dto/create-auth.dto';
+import { log } from 'console';
 
 @Injectable()
 export class AuthService {
@@ -50,6 +51,7 @@ export class AuthService {
   }
 
   async verifyOtp(email: string, code: string) {
+    log('verifyOtp called with:', { email, code }); // Debug log  
     if (!email || !code) {
       throw new BadRequestException('Email va kod yuborilishi shart');
     }
