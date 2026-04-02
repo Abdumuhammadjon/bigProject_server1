@@ -25,25 +25,34 @@ export class MailProcessor extends WorkerHost {
 
   // Redis-dan vazifa kelganda ushbu process() metodi avtomatik ishlaydi
   async process(job: Job<{ email: string; otp: string }>): Promise<any> {
-    // Producer'dagi vazifa nomi bilan mosligini tekshiramiz
     if (job.name === 'send-otp') {
       const { email, otp } = job.data;
       this.logger.log(`Email yuborish boshlandi: ${email}`);
 
       try {
-        // Haqiqiy email yuborish buyrug'i
         await this.transporter.sendMail({
           from: `"${this.configService.get('MAIL_NAME')}" <${this.configService.get('MAIL_USER')}>`,
           to: email,
           subject: 'Tasdiqlash kodi',
-          html: `...OTP kodli HTML dizayn...`, // Email ichidagi ko'rinish
+          // BU YERDA O'ZGARTIRISH KIRITILDI:
+          html: `
+            <div style="font-family: sans-serif; max-width: 400px; margin: 0 auto; border: 1px solid #e0e0e0; padding: 20px; border-radius: 15px; text-align: center;">
+              <h2 style="color: #333;">Tasdiqlash kodi</h2>
+              <p style="color: #666; font-size: 16px;">Xizmatdan foydalanish uchun quyidagi 6 xonali kodni kiriting:</p>
+              <div style="background-color: #f4f7ff; padding: 15px; border-radius: 10px; margin: 20px 0;">
+                <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #2563eb;">
+                  ${otp} 
+                </span>
+              </div>
+              <p style="color: #999; font-size: 12px;">Bu kod 3 daqiqa davomida amal qiladi. Agar bu so'rovni siz yubormagan bo'lsangiz, ushbu xatga e'tibor bermang.</p>
+            </div>
+          `,
         });
 
         this.logger.log(`Email muvaffaqiyatli yuborildi: ${email}`);
         return { status: 'sent' };
       } catch (error) {
         this.logger.error("SMTP Xatosi:", error.message);
-        // Agar bu yerda xato otsangiz (throw), BullMQ 'attempts' bo'yicha qayta urinadi
         throw error; 
       }
     }

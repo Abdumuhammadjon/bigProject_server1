@@ -14,6 +14,13 @@ async function bootstrap() {
     }),
   );
 
+  // CORS-ga ruxsat berish
+  app.enableCors({
+    origin: 'http://localhost:3000', // Faqat sizning frontendingizga ruxsat beradi
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true, // Agar cookie yoki auth header-lar bo'lsa kerak bo'ladi
+  });
+
   // Portni .env dan oladi, bo'lmasa 3000-da ishlaydi
   const port = process.env.PORT || 3000;
   await app.listen(port);
