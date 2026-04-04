@@ -5,13 +5,23 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './entities/auth.entity'; 
 import { RedisModule } from '@nestjs-modules/ioredis';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { JobsModule } from './auth/processors/jobs.module'; // JOBS_MODULE NI QO'SHDIK
+import { JobsModule } from './auth/processors/jobs.module';
 import { MailProcessor } from './auth/processors/mail.processor';
+import { JwtModule } from '@nestjs/jwt'; // <--- Qo'shildi
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User]),
-    JobsModule, // BU NAVBATNI TANITIB BERADI
+    JobsModule,
+    // Login ishlashi uchun JWT ni sozlash
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: (config: ConfigService) => ({
+        secret: config.get('JWT_SECRET') || 'secretKey', 
+        signOptions: { expiresIn: '1d' },
+      }),
+      inject: [ConfigService],
+    }),
     RedisModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => ({

@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { 
+  Injectable, 
+  BadRequestException, 
+  UnauthorizedException  // <--- SHU SO'ZNI QO'SHING
+} from '@nestjs/common';
+
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InjectRedis } from '@nestjs-modules/ioredis';
@@ -7,7 +12,9 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/auth.entity';
-import { RegisterDto } from './dto/create-auth.dto';
+import { RegisterDto, LoginDto   } from './dto/create-auth.dto';
+
+import { JwtService } from '@nestjs/jwt';
 import { log } from 'console';
 
 @Injectable()
@@ -16,6 +23,7 @@ export class AuthService {
     @InjectRepository(User) private userRepo: Repository<User>,
     @InjectRedis() private readonly redis: Redis,
     @InjectQueue('mail-queue') private mailQueue: Queue,
+    private jwtService: JwtService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -104,4 +112,39 @@ async resendOtp(email: string) {
     email: email 
   };
 }
+
+async login(loginDto: LoginDto) {
+    const { email, password } = loginDto;
+
+    // 1. Foydalanuvchini tekshirish
+    const user = await this.userRepo.findOne({ where: { email } });
+    if (!user) {
+      throw new UnauthorizedException('Email yoki parol noto‘g‘ri');
+    }
+
+    // 2. Parolni bcrypt orqali tekshirish
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Email yoki parol noto‘g‘ri');
+    }
+
+    // 3. Tasdiqlanganini tekshirish
+    if (!user.isVerified) {
+      throw new UnauthorizedException('Hisobingiz tasdiqlanmagan. Emailingizni tekshiring.');
+    }
+
+    // 4. JWT Token yaratish
+    const payload = { sub: user.id, email: user.email };
+    
+    return {
+      message: "Tizimga kirdingiz",
+      access_token: this.jwtService.sign(payload),
+      user: {
+        id: user.id,
+        email: user.email,
+      }
+    };
+  }
+
+
 }
